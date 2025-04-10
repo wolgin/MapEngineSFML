@@ -1,1 +1,24 @@
+# IDE and editor directories
+.vscode/
+.idea/
+
+# Build directories
 build/
+dist/
+*.exe
+*.out
+*.app
+
+# Dependency directories
+node_modules/
+venv/
+*.pyc
+__pycache__/
+
+# Environment files
+.env
+*.env
+
+# System files
+.DS_Store
+Thumbs.db
