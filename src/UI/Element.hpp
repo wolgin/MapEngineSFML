@@ -4,41 +4,26 @@
 #include <functional>
 #include <SFML/Graphics.hpp>
 
+
+
+#include <iostream>
+
+
 namespace ui {
 
-    class Contour : public sf::Drawable {
+    class Element : public sf::Drawable, public sf::Transformable {
 
         private:
 
-            sf::Texture texture;
+            bool active;
+            const sf::Texture *const texture;
             std::vector<sf::Vertex> vertices;
             sf::VertexBuffer buffer;
 
-        public:
-
-            Contour(
-                const sf::Texture &_texture,
-                const std::vector<sf::Vector2f> &_outline = std::vector<sf::Vector2f>(),
-                const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping = [](const sf::Vector2f &_v) { return _v; }
-            );
-
-            Contour(const Contour &) = delete;
-            Contour(Contour &&) = delete;
-            virtual ~Contour() = default;
-
-            bool contains(const sf::Vector2f &_position) const;
-            virtual void draw(sf::RenderTarget &_target, sf::RenderStates _states) const override;
-    };
-
-    class Element : public Contour, public sf::Transformable {
-
-        private:
+        protected:
 
             static std::map<std::string, Element *> elements;
             std::list<Element *> children;
-            bool active;
-
-        protected:
 
             virtual bool mouseMoved(const sf::Vector2f &_pos) { return false; }
             virtual bool mouseScrolled(const sf::Vector2f &_pos, float _delta) { return false; }
@@ -51,16 +36,20 @@ namespace ui {
 
             Element(
                 const std::string &_id,
-                const sf::Texture &_texture,
-                const std::vector<sf::Vector2f> &_outline = std::vector<sf::Vector2f>(),
-                const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping = [](const sf::Vector2f &_v) { return _v; }
+                const sf::Texture *const _texture
             ) :
-                active(true),
-                Contour(_texture, _outline, _mapping)
+                active(false),
+                texture(_texture),
+                buffer(sf::PrimitiveType::Triangles, sf::VertexBuffer::Usage::Static)
             {
                 elements[_id] = this;
+                const float width = static_cast<float>(texture->getSize().x);
+                const float height = static_cast<float>(texture->getSize().y);
+                resample({ { 0.0f, 0.0f }, { 0.0f, height }, { width, height }, { width, 0.0f } });
             }
 
+            Element(const Element &_element) = delete;
+            Element(Element &&_element) = delete;
             virtual ~Element() = default;
 
             void enable() { active = true; }
@@ -69,6 +58,12 @@ namespace ui {
             void attach(const std::string &_id) { children.push_back(elements[_id]); }
             void detach(const std::string &_id) { children.remove(elements[_id]); }
 
+            void resample(
+                const std::vector<sf::Vector2f> &_outline = std::vector<sf::Vector2f>(),
+                const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping = [](const sf::Vector2f &_v) { return _v; }
+            );
+
+            bool contains(const sf::Vector2f &_position) const;
             bool handle(const std::optional<sf::Event> &_event, sf::Transform _global = sf::Transform());
             void draw(sf::RenderTarget &_target, sf::RenderStates _states) const override;
     };
@@ -89,17 +84,15 @@ namespace ui {
 
             Button(
                 const std::string &_id,
-                const sf::Texture &_texture,
+                const sf::Texture *const _texture,
                 const std::function<void(void)> &_leftClick = []() { return false; },
-                const std::function<void(void)> &_rightClick = []() { return false; },
-                const std::vector<sf::Vector2f> &_outline = std::vector<sf::Vector2f>(),
-                const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping = [](const sf::Vector2f &_v) { return _v; }
+                const std::function<void(void)> &_rightClick = []() { return false; }
             ) :
                 leftPressed(false),
                 rightPressed(false),
                 leftClick(_leftClick),
                 rightClick(_rightClick),
-                Element(_id, _texture, _outline, _mapping)
+                Element(_id, _texture)
             {}
 
             virtual ~Button() = default;
@@ -123,11 +116,9 @@ namespace ui {
 
             Draggable(
                 const std::string &_id,
-                const sf::Texture &_texture,
-                const std::vector<sf::Vector2f> &_outline = std::vector<sf::Vector2f>(),
-                const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping = [](const sf::Vector2f &_v) { return _v; }
+                const sf::Texture *const _texture
             ) :
-                Element(_id, _texture, _outline, _mapping)
+                Element(_id, _texture)
             {}
 
             virtual ~Draggable() = default;

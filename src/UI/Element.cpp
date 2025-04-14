@@ -2,34 +2,9 @@
 
 namespace ui {
 
-    // Contour
+    // Helper functions
 
     static const float EPSILON = 1e-10f;
-
-    static std::vector<sf::Vector2f> checkOutline(
-        const sf::Texture &tex,
-        const std::vector<sf::Vector2f> &out
-    ) {
-        const float w = static_cast<float>(tex.getSize().x - 1);
-        const float h = static_cast<float>(tex.getSize().y - 1);
-        const std::vector<sf::Vector2f> textureOutline = { { 0.0f, 0.0f }, { 0.0f, h }, { w, h }, { w, 0.0f } };
-        
-        if (out.size() < 3) return textureOutline;
-
-        sf::Vector2f min = { w, h }, max = { 0.0f, 0.0f };
-
-        for (auto &pt : out) {
-            if (pt.x < min.x) min.x = pt.x;
-            if (pt.y < min.y) min.y = pt.y;
-            if (pt.x > max.x) max.x = pt.x;
-            if (pt.y > max.y) max.y = pt.y;
-        }
-
-        if (min.x < 0.0f || min.y < 0.0f || max.x > w || max.y > h)
-            return textureOutline;
-        
-        return out;
-    }
 
     static bool simplexContains(
         const sf::Vector2f &A,
@@ -65,21 +40,22 @@ namespace ui {
         return true;
     };
 
-    Contour::Contour(
-        const sf::Texture &_texture,
+
+    // Element
+
+    auto Element::elements = std::map<std::string, Element *>();
+
+    void Element::resample(
         const std::vector<sf::Vector2f> &_outline,
         const std::function<sf::Vector2f(const sf::Vector2f &)> &_mapping
-    ) :
-        texture(_texture)
-    {
-        const std::vector<sf::Vector2f> out = checkOutline(_texture, _outline);
-
-        size_t n = out.size();
+    ) {
+        const size_t n = _outline.size();
         size_t *V = new size_t[n];
 
         float orientation = 0.0f;
+
         for (size_t p = n - 1, q = 0; q < n; p = q++)
-            orientation += out[p].x * out[q].y - out[q].x * out[p].y;
+            orientation += _outline[p].x * _outline[q].y - _outline[q].x * _outline[p].y;
 
         if (orientation > 0.0f)
             for (size_t v = 0; v < n; ++v) V[v] = v;
@@ -88,17 +64,19 @@ namespace ui {
 
         size_t nv = n;
 
+        vertices.clear();
+
         for (size_t v = nv - 1; nv > 2;) {
 
             size_t u = v;       if (nv <= u) u = 0;
             v = u + 1;          if (nv <= v) v = 0;
             size_t w = v + 1;   if (nv <= w) w = 0;
 
-            if (snip(out, u, v, w, nv, V)) {
+            if (snip(_outline, u, v, w, nv, V)) {
 
-                sf::Vertex a; a.texCoords = out[V[u]]; a.position = _mapping(a.texCoords); vertices.push_back(a);
-                sf::Vertex b; b.texCoords = out[V[v]]; b.position = _mapping(b.texCoords); vertices.push_back(b);
-                sf::Vertex c; c.texCoords = out[V[w]]; c.position = _mapping(c.texCoords); vertices.push_back(c);
+                sf::Vertex a; a.texCoords = _outline[V[u]]; a.position = _mapping(_outline[V[u]]); vertices.push_back(a);
+                sf::Vertex b; b.texCoords = _outline[V[v]]; b.position = _mapping(_outline[V[v]]); vertices.push_back(b);
+                sf::Vertex c; c.texCoords = _outline[V[w]]; c.position = _mapping(_outline[V[w]]); vertices.push_back(c);
 
                 for (size_t s = v; s + 1 < nv; ++s)
                     V[s] = V[s + 1];
@@ -109,13 +87,10 @@ namespace ui {
         
         delete[] V;
 
-        buffer = sf::VertexBuffer(sf::PrimitiveType::Triangles, sf::VertexBuffer::Usage::Static);
-
-        if (!buffer.create(vertices.size()) || !buffer.update(vertices.data()))
-            throw std::bad_alloc();
+        if (!buffer.create(vertices.size()) || !buffer.update(vertices.data())) throw std::bad_alloc();
     }
 
-    bool Contour::contains(const sf::Vector2f &_position) const {
+    bool Element::contains(const sf::Vector2f &_position) const {
 
         for (size_t i = 0; i < vertices.size() / 3; ++i) {
 
@@ -128,17 +103,6 @@ namespace ui {
 
         return false;
     }
-
-    void Contour::draw(sf::RenderTarget &_target, sf::RenderStates _states) const {
-
-        _states.texture = &texture;
-        _target.draw(buffer, _states);
-    }
-
-
-    // Element
-
-    auto Element::elements = std::map<std::string, Element *>();
 
     bool Element::handle(const std::optional<sf::Event> &_event, sf::Transform _global) {
 
@@ -195,8 +159,8 @@ namespace ui {
 
         bool subtreeFocused = false;
 
-        for (auto &child : children)
-            subtreeFocused = subtreeFocused || child->handle(_event, _global);
+        for (auto child = children.end(); child-- != children.begin();)
+            subtreeFocused = subtreeFocused || (*child)->handle(_event, _global);
 
         return subtreeFocused || thisFocused();
     }
@@ -205,8 +169,9 @@ namespace ui {
 
         if (!active) return;
 
+        _states.texture = texture;
         _states.transform *= getTransform();
-        Contour::draw(_target, _states);
+        _target.draw(buffer, _states);
 
         for (auto &child : children)
             child->draw(_target, _states);

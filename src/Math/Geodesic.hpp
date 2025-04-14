@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 
-namespace ns
+namespace geo
 {
     const std::array<float, 3> projection_curvature(float R, float x, float y);
     const std::array<float, 6> curvature_gradient(float R, float x, float y);

@@ -2,74 +2,61 @@
 #include "UI/Element.hpp"
 //#include "Math/Geodesic.hpp"
 
+#define WIDTH 900u
+#define HEIGHT 600u
+
 void test1() {
 
-    auto renderTexture = sf::RenderTexture({ 900u, 600u });
-    auto earth = sf::CircleShape(300.0f);
-    earth.setFillColor(sf::Color::Blue);
-    earth.setOrigin({ 300.0f, 300.0f });
-    earth.move({ 450.0f, 300.0f });
-    renderTexture.clear(sf::Color::Black);
-    renderTexture.draw(earth);
-    renderTexture.display();
-    auto canvasTxr = renderTexture.getTexture();
-    auto canvas = ui::Element("canvas", canvasTxr);
+    auto canvasTxr = sf::Texture(sf::Image({ WIDTH, HEIGHT }, sf::Color::Black));
+    auto canvas = ui::Element("canvas", &canvasTxr);
 
-    auto img = sf::Image({ 150u, 100u }, sf::Color::Magenta);
-    auto txr = sf::Texture(img);
-    auto form = ui::Draggable("form", txr);
-    form.move({ 700.0f, 450.0f });
-    form.rotate(sf::radians(0.5f));
-/*
-    auto callback1 = []() {
-        std::cout << "Left mouse form clicked" << std::endl;
-        return true;
+    auto labelTxr = sf::Texture(sf::Image({ 100u, 100u }, sf::Color::Magenta));
+    auto label = ui::Draggable("label", &labelTxr);
+
+    auto buttonTxr = sf::Texture(sf::Image({ 50u, 50u }, sf::Color::Yellow));
+    auto button = ui::Button("button", &buttonTxr);
+
+    auto stretch = [&button]() {
+        button.resample({ { 0.0f, 0.0f }, { 0.0f, 50.0f }, { 150.0f, 50.0f }, { 150.0f, 0.0f } });
     };
 
-    auto callback2 = []() {
-        std::cout << "Right mouse form clicked" << std::endl;
-        return true;
+    auto shrink = [&button]() {
+        button.resample({ { 0.0f, 0.0f }, { 0.0f, 50.0f }, { 50.0f, 50.0f }, { 50.0f, 0.0f } });
     };
 
-    form.setLeftClick(callback1);
-    form.setRightClick(callback2);
-*/
-    auto image = sf::Image({ 20u, 20u }, sf::Color(255, 0, 0));
-    auto texture = sf::Texture(image);
+    bool mode = false;
 
-    auto patch = ui::Draggable("patch", texture);
-    patch.rotate(sf::radians(0.2f));
+    button.setLeftClick(
+        [&mode, &stretch, &shrink]() {
+            (mode = !mode) ? stretch() : shrink();
+        }
+    );
 
-    canvas.attach("form");
-    form.attach("patch");
+    canvas.attach("label");
+    label.attach("button");
 
     canvas.enable();
-    form.enable();
-    patch.enable();
+    label.enable();
+    button.enable();
 
-    auto contour = ui::Contour(canvasTxr);
+    label.move({ 100.0, 100.0f });
+    button.move({ 25.0f, 25.0f });
 
-    auto window = sf::RenderWindow(sf::VideoMode({ 900u, 600u }), "test");
+    auto window = sf::RenderWindow(sf::VideoMode({ WIDTH, HEIGHT }), "test");
     window.setFramerateLimit(60);
 
     while (window.isOpen()) {
-        while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>())
-                window.close();
-            else
-                canvas.handle(event);
-        }
+        while (const std::optional event = window.pollEvent())
+            if (event->is<sf::Event::Closed>()) window.close();
+            else canvas.handle(event);
         window.clear(sf::Color::Black);
-        //window.draw(contour);
         window.draw(canvas);
         window.display();
     }
 }
 
-
 int main() {
 
-    test1();    
-
+    test1();
     return 0;
 }

@@ -1,6 +1,6 @@
 #include "Geodesic.hpp"
 
-namespace ns {
+namespace geo {
 
     const std::array<float, 3> projection_curvature(float R, float x, float y) {
         const float divider = R * R - x * x - y * y;
